@@ -64,15 +64,15 @@ docs = [
 [tool.flit.module]
 name = "aiida_cattools"
 
-[tool.pylint.format]
-max-line-length = 125
+# [tool.pylint.format]
+# max-line-length = 125
 
-[tool.pylint.messages_control]
-disable = [
-    "too-many-ancestors",
-    "invalid-name",
-    "duplicate-code",
-]
+# [tool.pylint.messages_control]
+# disable = [
+#     "too-many-ancestors",
+#     "invalid-name",
+#     "duplicate-code",
+# ]
 
 [tool.pytest.ini_options]
 # Configuration for [pytest](https://docs.pytest.org)
