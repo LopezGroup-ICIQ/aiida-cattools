@@ -1,16 +1,17 @@
-import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from pprint import pprint
 from typing import Optional, Union  # Protocol
+import uuid
+
+from aiida_quantumespresso.workflows.pw.relax import PwRelaxWorkChain
+from aiida_vasp.workchains.relax import RelaxWorkChain
 
 from aiida.common.exceptions import NotExistentAttributeError
 from aiida.orm import load_node
 from aiida.orm.utils import OrmEntityLoader
-from aiida_quantumespresso.workflows.pw.relax import PwRelaxWorkChain
-from aiida_vasp.workchains.relax import RelaxWorkChain
 
-from ..utils.getters import get_energy_from_pk
+from aiida_cattools.getters.wc import get_energy_from_pk
 
 # ? Should this inherit from any AiiDA data type at all?
 # ? Should this contain the catalyst/chemistry specifications
@@ -43,6 +44,7 @@ from ..utils.getters import get_energy_from_pk
 
 
 @dataclass
+# class BaseSimulation
 class Simulation:
     """Dataclass that compiles all the data associated with a simulation."""
 
@@ -51,14 +53,15 @@ class Simulation:
     label: Optional[str] = ""
     wc_pk: Optional[int] = 0
     comment: Optional[str] = ""
-    former_path: Optional[Path] = Path()
+    local_path: Optional[Path] = Path()
 
     # ? Catalyst/chemical specifications
     chem_formula: Optional[str] = ""
     surf_facet: Optional[str] = ""
     active_metal: Optional[str] = ""  # Possibly instance of mendeleev
     site_subst: Optional[bool] = ""
-    vacancy: Optional[bool] = False
+    surf_vac: Optional[int] = 0
+    subsurf_vac: Optional[int] = 0
     ads_site: Optional[str] = ""
     ads_formula: Optional[str] = ""
 

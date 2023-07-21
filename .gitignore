@@ -175,3 +175,4 @@ build/
 dist/
 pip-wheel-metadata/
 .history/
+*.code-workspace
