@@ -1,14 +1,16 @@
 import logging
+import math
 from typing import List, Union
 
-from aiida_tools.vasp.runners import set_selective_dynamics_wc
 from ase import Atoms
+import numpy as np
 import pandas as pd
 
 from aiida.common.exceptions import NotExistent, NotExistentAttributeError
 from aiida.orm import QueryBuilder, load_node
 
 from aiida_cattools.getters.misc import get_energy_405_exit
+from aiida_cattools.vasp.setters import set_selective_dynamics_wc
 
 __all__ = [
     "get_wc_pk_from_energy",
@@ -17,6 +19,13 @@ __all__ = [
     "get_wc_structural_change",
     "get_wc_magnetization",
 ]
+
+FALLBACK_ATOMS = Atoms(
+    symbols="X",
+    positions=[[5, 5, 5]],
+    pbc=True,
+    cell=[[10, 0, 0], [0, 10, 0], [0, 0, 10]],
+)
 
 
 def get_wc_pk_from_energy(aiida_type, target_energy, tol: float = 0.5):
@@ -46,12 +55,12 @@ def get_wc_pk_from_energy(aiida_type, target_energy, tol: float = 0.5):
 
 
 def get_energy_from_wc_pk(input_pk):
-    final_energy = 0
+    final_energy = -1.0
     try:
         wc_node = load_node(input_pk)
     except NotExistent:
-        logging.warn(
-            f"Workchain {input_pk} NotExistent. Returning default value of 0."  # noqa: E501
+        logging.warning(
+            f"Workchain {input_pk} NotExistent. Returning -1 as default value."  # noqa: E501
         )
         return final_energy
 
@@ -64,8 +73,8 @@ def get_energy_from_wc_pk(input_pk):
                 "energy_extrapolated_electronic"
             ]
         except NotExistentAttributeError:
-            logging.warn(
-                f"Workchain with PK {input_pk} gave NotExistentAttributeError. Returning default value of 0."  # noqa: E501
+            logging.warning(
+                f"Workchain with PK {input_pk} gave NotExistentAttributeError. Returning -1 as default value."  # noqa: E501
             )
 
     return final_energy
@@ -74,11 +83,12 @@ def get_energy_from_wc_pk(input_pk):
 def get_wc_input_structure(
     input_pk: int, return_type: str = "ase"
 ) -> Union[List[Atoms], List[int]]:
-    if input_pk == 0:
+    if input_pk == -1:
         if return_type == "ase":
-            return [Atoms()]
+            return [FALLBACK_ATOMS]
+            # return
         elif return_type == "pk":
-            return [0]
+            return [-1]
 
     wc_node = load_node(input_pk)
     process_label = wc_node.process_label
@@ -91,7 +101,7 @@ def get_wc_input_structure(
         if process_label == "RelaxWorkChain":  # VASP
             # Attach selective dynamics for VASP
             structure_ase = set_selective_dynamics_wc(
-                wc_node=wc_node, ase_structure=structure_ase
+                wc_node=wc_node, ase_in=structure_ase
             )
             # print(structure_ase)
         else:
@@ -100,17 +110,17 @@ def get_wc_input_structure(
 
         return [structure_ase]
     else:
-        return [Atoms()]
+        return [FALLBACK_ATOMS]
 
 
 def get_wc_output_structure(
     input_pk: int, return_type: str = "ase"
 ) -> Union[List[Atoms], List[int]]:
-    if input_pk == 0:
+    if input_pk == -1:
         if return_type == "ase":
-            return [Atoms()]
+            return [FALLBACK_ATOMS]
         elif return_type == "pk":
-            return [0]
+            return [-1]
 
     wc_node = load_node(input_pk)
 
@@ -121,9 +131,9 @@ def get_wc_output_structure(
         # raise Exception(f"Node with id {input_pk} has non-zero exit status")
         print(f"Node with id {input_pk} has non-zero exit status")
         if return_type == "ase":
-            return [Atoms()]
+            return [FALLBACK_ATOMS]
         elif return_type == "pk":
-            return [0]
+            return [-1]
 
     process_label = wc_node.process_label
     if process_label == "RelaxWorkChain":  # VASP
@@ -131,7 +141,7 @@ def get_wc_output_structure(
     elif process_label == "PwRelaxWorkChain":  # QE
         structure_sd = wc_node.outputs.output_structure
     elif process_label == "VaspWorkChain":  # QE
-        logging.warn(
+        logging.warning(
             f"VaspWorkChain ({input_pk}) does not return a StructureData node. Returning input structure instead."
         )  # noqa: E501
         structure_sd = wc_node.inputs.structure
@@ -147,7 +157,7 @@ def get_wc_output_structure(
         structure_ase = structure_sd.get_ase()
         if process_label == "RelaxWorkChain":  # VASP
             structure_ase = set_selective_dynamics_wc(
-                wc_node=wc_node, ase_structure=structure_ase
+                wc_node=wc_node, ase_in=structure_ase
             )
         return [structure_ase]
     else:
@@ -159,8 +169,8 @@ def get_wc_structural_change(input_pk: int, return_type: str = "ase") -> List[At
 
     try:
         final_structure = get_wc_output_structure(input_pk, return_type=return_type)
-    except (Exception, NotImplementedError) as exception:
-        final_structure = [Atoms()]
+    except (Exception, NotImplementedError):
+        final_structure = [FALLBACK_ATOMS]
 
     structure_list = [initial_structure, final_structure]
 
@@ -188,8 +198,8 @@ def get_wc_magnetization(
     # ? Just sum up over f-orbital magnetizations for the Ce atoms
     output_dict = {"mag_df": None, "num_ce3": None, "ce3_mag": None, "elem_mag": None}
     # if isinstance(input_pk, int):
-
-    if input_pk == 0:
+    logging.debug(f"Getting magnetization for {input_pk}")
+    if input_pk == -1:
         return output_dict
     else:
         wc_node = load_node(input_pk)
@@ -215,11 +225,15 @@ def get_wc_magnetization(
         mag_df["symbol"] = node_symbols
         output_dict["mag_df"] = mag_df
 
-        num_ce3 = mag_df.loc[
-            (mag_df["symbol"] == list(mos_dict.keys())[0])
-            & (mag_df[list(mos_dict.values())[0]].abs() > mos_thresh)
-        ].shape[0]
-        output_dict["num_ce3"] = num_ce3
+        try:
+            num_ce3 = mag_df.loc[
+                (mag_df["symbol"] == list(mos_dict.keys())[0])
+                & (mag_df[list(mos_dict.values())[0]].abs() > mos_thresh)
+            ].shape[0]
+            output_dict["num_ce3"] = num_ce3
+        except:
+            pass
+            # output_dict["num_ce3"] = None
 
         ce3_mag = mag_df.loc[(mag_df["symbol"] == list(mos_dict.keys())[0])][
             "tot"
@@ -236,3 +250,33 @@ def get_wc_magnetization(
         pass
 
     return output_dict
+
+
+def get_wc_formula(sd_pk):
+    if sd_pk == -1 or math.isnan(sd_pk) is True:
+        return None
+    else:
+        sd_pk = int(sd_pk)
+        return load_node(sd_pk).get_formula()
+
+
+def get_wc_exit_status(wc_pk):
+    if wc_pk == -1 or math.isnan(wc_pk) is True:
+        return -1
+    else:
+        wc_pk = int(wc_pk)
+        return load_node(wc_pk).exit_status
+
+
+def get_wc_constraints_set(wc_pk):
+    _ase = get_wc_input_structure(wc_pk)[0]
+    constraints = _ase.constraints
+
+    if len(constraints) == 0:
+        return False
+    else:
+        fixed_indices = constraints[0].get_indices()
+        if len(fixed_indices) == 0:
+            return False
+        else:
+            return True

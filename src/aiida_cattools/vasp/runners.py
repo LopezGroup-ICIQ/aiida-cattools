@@ -15,6 +15,7 @@ def run_vasp_relax(
     input_incar_dict,
     group_label: str = None,
     calc_label: str = None,
+    hubbard_overrides: dict = None,
 ):
     # code_string, incar, kmesh, structure, potential_family, potential_mapping, options
     """Main method to setup the calculation."""
@@ -32,7 +33,10 @@ def run_vasp_relax(
     OPTIONS.max_wallclock_seconds = 259200
 
     # Incar reproduced from INCAR file of pristine CeO2(100) slab
-    incar_dict = dict(input_incar_dict, **set_hubbard_values(ase_in=ase_in))
+    incar_dict = dict(
+        input_incar_dict,
+        **set_hubbard_values(ase_in=ase_in, hubbard_overrides=hubbard_overrides),
+    )
     dynamics_dict = set_selective_dynamics(ase_in)
     parameter_dict = {
         "incar": incar_dict,

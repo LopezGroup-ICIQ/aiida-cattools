@@ -1,17 +1,13 @@
 from dataclasses import dataclass
 from pathlib import Path
-from pprint import pprint
-from typing import Optional, Union  # Protocol
+from typing import Optional, Union
 import uuid
 
 from aiida_quantumespresso.workflows.pw.relax import PwRelaxWorkChain
 from aiida_vasp.workchains.relax import RelaxWorkChain
 
-from aiida.common.exceptions import NotExistentAttributeError
-from aiida.orm import load_node
-from aiida.orm.utils import OrmEntityLoader
 
-from aiida_cattools.getters.wc import get_energy_from_pk
+from aiida_cattools.getters.wc import get_energy_from_wc_pk
 
 # ? Should this inherit from any AiiDA data type at all?
 # ? Should this contain the catalyst/chemistry specifications
@@ -76,7 +72,7 @@ class Simulation:
     site_mos: Optional[int] = 0  # ? I don't like the default value
 
     def set_output_energy(self):
-        self.final_energy = get_energy_from_pk(input_pk=self.wc_pk)
+        self.final_energy = get_energy_from_wc_pk(input_pk=self.wc_pk)
 
     def get_output_energy(self):
         return self.final_energy
