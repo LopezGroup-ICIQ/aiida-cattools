@@ -150,7 +150,7 @@ def run_vasp_hse03(
 
     # Incar reproduced from INCAR file of pristine CeO2(100) slab
     incar_dict = dict(input_incar_dict)  # ! Remove U
-    dynamics_dict = constraints_to_aiida(ase_in)
+    dynamics_dict = set_selective_dynamics(ase_in)
     parameter_dict = {
         "incar": incar_dict,
         "dynamics": dynamics_dict,
