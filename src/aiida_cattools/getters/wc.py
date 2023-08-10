@@ -1,7 +1,7 @@
 import logging
 from typing import List, Union
 
-from aiida_tools.vasp.runners import set_selective_dynamics_wc
+from aiida_cattools.vasp.setters import set_selective_dynamics_wc
 from ase import Atoms
 import pandas as pd
 
