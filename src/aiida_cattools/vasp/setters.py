@@ -4,11 +4,7 @@ from typing import Union
 from ase.atoms import Atoms
 from ase.constraints import FixAtoms
 
-from aiida.orm import (
-    CalcJobNode,
-    Node,
-    WorkChainNode,
-)
+from aiida.orm import CalcJobNode, Node, WorkChainNode
 
 
 def set_selective_dynamics(ase_in: Atoms) -> dict:
@@ -36,7 +32,7 @@ def set_selective_dynamics(ase_in: Atoms) -> dict:
 
 
 def set_selective_dynamics_wc(
-    ase_structure: Atoms,
+    ase_in: Atoms,
     wc_node: Union[CalcJobNode, WorkChainNode, Node],
 ) -> Atoms:
     """CHANGED: Now, adds the dynamics of an aiida-vasp calculation to an already exsting ase.Atoms object.
@@ -54,14 +50,15 @@ def set_selective_dynamics_wc(
         index for index, value in enumerate(constraints_flattened) if value is not True
     ]
     fixatoms = FixAtoms(indices=constraints_indices)
-    ase_structure.set_constraint(fixatoms)
+    ase_out = ase_in.copy()
+    ase_out.set_constraint(fixatoms)
 
-    return ase_structure
+    return ase_out
 
 
 def set_hubbard_values(
     ase_in: Atoms,
-    u_mapping: dict = None,
+    hubbard_overrides: dict = None,
 ) -> dict:
     """Set up Hubbard (LDAUL, LDAUU, LDAUJ) values for atoms based on a mapping dictionary.
 
@@ -79,10 +76,10 @@ def set_hubbard_values(
         "La": (3, 5.5, 1.0),
     }
 
-    if u_mapping is None:
+    if hubbard_overrides is None:
         u_mapping = default_mapping
     else:
-        u_mapping = dict(default_mapping, **u_mapping)
+        u_mapping = {**default_mapping, **hubbard_overrides}
 
     u_list = []
     # Overly complicated to not get duplicated strings for multiple atoms of the same kind, preserved ordering, atoms appearing at different positions, etc.
